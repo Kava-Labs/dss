@@ -35,7 +35,7 @@ contract Vat {
     struct Ilk {
         uint256 Art;   // Total Normalised Debt     [wad]
         uint256 rate;  // Accumulated Rates         [ray]
-        uint256 spot;  // Price with Safety Margin  [ray] maxium amount of Dai drawn per unit collateral
+        uint256 spot;  // Price with Safety Margin  [ray] maxium amount of Dai alowed to be drawn per unit collateral // the liquidation ratio ??
         uint256 line;  // Debt Ceiling              [rad] maxium total dai drawn
         uint256 dust;  // Urn Debt Floor            [rad]
     }
@@ -140,26 +140,31 @@ contract Vat {
     }
 
     // --- CDP Manipulation ---
+    // Add or remove collateral or dai from a CDP. (includes creating a CDP?)
     function frob(bytes32 i, address u, address v, address w, int dink, int dart) public note {
         Urn storage urn = urns[i][u];
         Ilk storage ilk = ilks[i];
 
+        // add or remove collateral or dai to/from the CDP
         urn.ink = add(urn.ink, dink);
         urn.art = add(urn.art, dart);
         ilk.Art = add(ilk.Art, dart);
 
+        // update the user's free balances of collateral and dai
         gem[i][v] = sub(gem[i][v], dink);
         dai[w]    = add(dai[w], mul(ilk.rate, dart));
+        // update the total debt
         debt      = add(debt,   mul(ilk.rate, dart));
 
-        bool cool = dart <= 0;
-        bool firm = dink >= 0;
+        bool cool = dart <= 0; // true when the stablecoin debt does not increase
+        bool firm = dink >= 0; // true when the collateral balance does not decrease
         bool nice = cool && firm;
-        bool calm = mul(ilk.Art, ilk.rate) <= ilk.line && debt <= Line;
-        bool safe = mul(urn.art, ilk.rate) <= mul(urn.ink, ilk.spot);
+        bool calm = mul(ilk.Art, ilk.rate) <= ilk.line && debt <= Line; // true when the CDP remains under both collateral and total debt ceilings
+        bool safe = mul(urn.art, ilk.rate) <= mul(urn.ink, ilk.spot); // true when the CDP's ratio of collateral to debt is above the collateral's liquidation ratio
 
         require((calm || cool) && (nice || safe));
 
+        // authorisation
         require(wish(u, msg.sender) ||  nice);
         require(wish(v, msg.sender) || !firm);
         require(wish(w, msg.sender) || !cool);
@@ -169,6 +174,7 @@ contract Vat {
         require(live == 1);
     }
     // --- CDP Fungibility ---
+    // move collateral and/or debt between two user's CDPs
     function fork(bytes32 ilk, address src, address dst, int dink, int dart) public note {
         Urn storage u = urns[ilk][src];
         Urn storage v = urns[ilk][dst];
@@ -208,7 +214,7 @@ contract Vat {
     }
 
     // --- Settlement ---
-    // destroy debt and dai
+    // destroy (or create) equal amounts of debt and dai
     function heal(address u, address v, int rad) public note auth {
         sin[u] = sub(sin[u], rad);
         dai[v] = sub(dai[v], rad);
@@ -217,10 +223,10 @@ contract Vat {
     }
 
     // --- Rates ---
-    function fold(bytes32 i, address u, int rate) public note auth {
+    function fold(bytes32 i, address u, int rate) public note auth { // this is only called by Jug.drip, where u is the Vow contract address
         Ilk storage ilk = ilks[i];
-        ilk.rate = add(ilk.rate, rate); // rate is accumulated stabilty fee?
-        int rad  = mul(ilk.Art, rate);
+        ilk.rate = add(ilk.rate, rate); // rate is accumulated stabilty fee
+        int rad  = mul(ilk.Art, rate); // stability fee must be repaid so the total debt increases
         dai[u]   = add(dai[u], rad);
         debt     = add(debt,   rad);
     }

@@ -22,7 +22,7 @@ contract Jug is DSNote {
     // --- Data ---
     struct Ilk {
         uint256 duty;
-        uint48  rho;
+        uint48  rho; // timestamp when the stability fees were last calculated
     }
 
     mapping (bytes32 => Ilk) public ilks;

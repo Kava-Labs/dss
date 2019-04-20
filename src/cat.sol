@@ -133,9 +133,9 @@ contract Cat is DSNote {
         require(mul(u.ink, i.spot) < tab);  // !safe
 
         vat.grab(ilk, urn, address(this), address(vow), -int(u.ink), -int(u.art)); // confiscate the CDP - ie destroy it and give collateral to cat contract and debt to vow contract
-        vow.fess(tab);                                                             // add debt to the queue
+        vow.fess(tab); // add debt to the queue
 
-        flips[nflip] = Flip(ilk, urn, u.ink, tab);
+        flips[nflip] = Flip(ilk, urn, u.ink, tab); // create a flip object recording collateral and dai to be raised
 
         emit Bite(ilk, urn, u.ink, u.art, tab, nflip);
 
@@ -147,18 +147,18 @@ contract Cat is DSNote {
         Flip storage f = flips[n];
         Ilk  storage i = ilks[f.ilk];
 
-        require(rad <= f.tab);
+        require(rad <= f.tab); // tab is amount of dai to be raised at auction
         require(rad == i.lump || (rad < i.lump && rad == f.tab));
 
-        uint tab = f.tab;
-        uint ink = mul(f.ink, rad) / tab;
+        uint tab = f.tab; // total dai to be raised
+        uint ink = mul(f.ink, rad) / tab; // "f.ink * (rad/tab)" scale ink sold in this auction by the amount flip is called with
 
         f.tab -= rad;
         f.ink -= ink;
 
         id = Flippy(i.flip).kick({ urn: f.urn
                                  , gal: address(vow)
-                                 , tab: rmul(rad, i.chop)
+                                 , tab: rmul(rad, i.chop) // chop is the liquidation penalty
                                  , lot: ink
                                  , bid: 0
                                  });
