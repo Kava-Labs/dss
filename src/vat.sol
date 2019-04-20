@@ -34,8 +34,8 @@ contract Vat {
     // --- Data ---
     struct Ilk {
         uint256 Art;   // Total Normalised Debt     [wad]
-        uint256 rate;  // Accumulated Rates         [ray]
-        uint256 spot;  // Price with Safety Margin  [ray] maxium amount of Dai alowed to be drawn per unit collateral // the liquidation ratio ??
+        uint256 rate;  // Accumulated Rates         [ray] "accumulated stability fees"
+        uint256 spot;  // Price with Safety Margin  [ray] maxium amount of Dai alowed to be drawn per unit collateral // This is the price feed for a collateral type. It is the price of the collateral in DAi x the liquidation ratio
         uint256 line;  // Debt Ceiling              [rad] maxium total dai drawn
         uint256 dust;  // Urn Debt Floor            [rad]
     }
@@ -116,7 +116,7 @@ contract Vat {
         if (what == "Line") Line = data;
     }
     function file(bytes32 ilk, bytes32 what, uint data) public note auth {
-        if (what == "spot") ilks[ilk].spot = data;
+        if (what == "spot") ilks[ilk].spot = data; // this is how the price feed is fed in
         if (what == "line") ilks[ilk].line = data;
         if (what == "dust") ilks[ilk].dust = data;
     }
