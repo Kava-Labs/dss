@@ -34,9 +34,9 @@ contract Vat {
     // --- Data ---
     struct Ilk {
         uint256 Art;   // Total Normalised Debt     [wad]
-        uint256 rate;  // Accumulated Rates         [ray]
-        uint256 spot;  // Price with Safety Margin  [ray]
-        uint256 line;  // Debt Ceiling              [rad]
+        uint256 rate;  // Accumulated Rates         [ray] "accumulated stability fees"
+        uint256 spot;  // Price with Safety Margin  [ray] maxium amount of Dai alowed to be drawn per unit collateral // This is the price feed for a collateral type. It is the price of the collateral in DAi x the liquidation ratio
+        uint256 line;  // Debt Ceiling              [rad] maxium total dai drawn
         uint256 dust;  // Urn Debt Floor            [rad]
     }
     struct Urn {
@@ -116,20 +116,23 @@ contract Vat {
         if (what == "Line") Line = data;
     }
     function file(bytes32 ilk, bytes32 what, uint data) public note auth {
-        if (what == "spot") ilks[ilk].spot = data;
+        if (what == "spot") ilks[ilk].spot = data; // this is how the price feed is fed in
         if (what == "line") ilks[ilk].line = data;
         if (what == "dust") ilks[ilk].dust = data;
     }
 
     // --- Fungibility ---
+    // add a type of gem to an address
     function slip(bytes32 ilk, address usr, int256 wad) public note auth {
         gem[ilk][usr] = add(gem[ilk][usr], wad);
     }
+    // transfer (a particular type of) gems between addresses
     function flux(bytes32 ilk, address src, address dst, uint256 wad) public note {
         require(wish(src, msg.sender));
         gem[ilk][src] = sub(gem[ilk][src], wad);
         gem[ilk][dst] = add(gem[ilk][dst], wad);
     }
+    // transfer dai between addresses
     function move(address src, address dst, uint256 rad) public note {
         require(wish(src, msg.sender));
         dai[src] = sub(dai[src], rad);
@@ -137,26 +140,31 @@ contract Vat {
     }
 
     // --- CDP Manipulation ---
+    // Add or remove collateral or dai from a CDP. (includes creating a CDP?)
     function frob(bytes32 i, address u, address v, address w, int dink, int dart) public note {
         Urn storage urn = urns[i][u];
         Ilk storage ilk = ilks[i];
 
+        // add or remove collateral or dai to/from the CDP
         urn.ink = add(urn.ink, dink);
         urn.art = add(urn.art, dart);
         ilk.Art = add(ilk.Art, dart);
 
+        // update the user's free balances of collateral and dai
         gem[i][v] = sub(gem[i][v], dink);
         dai[w]    = add(dai[w], mul(ilk.rate, dart));
+        // update the total debt
         debt      = add(debt,   mul(ilk.rate, dart));
 
-        bool cool = dart <= 0;
-        bool firm = dink >= 0;
+        bool cool = dart <= 0; // true when the stablecoin debt does not increase
+        bool firm = dink >= 0; // true when the collateral balance does not decrease
         bool nice = cool && firm;
-        bool calm = mul(ilk.Art, ilk.rate) <= ilk.line && debt <= Line;
-        bool safe = mul(urn.art, ilk.rate) <= mul(urn.ink, ilk.spot);
+        bool calm = mul(ilk.Art, ilk.rate) <= ilk.line && debt <= Line; // true when the CDP remains under both collateral and total debt ceilings
+        bool safe = mul(urn.art, ilk.rate) <= mul(urn.ink, ilk.spot); // true when the CDP's ratio of collateral to debt is above the collateral's liquidation ratio
 
         require((calm || cool) && (nice || safe));
 
+        // authorisation
         require(wish(u, msg.sender) ||  nice);
         require(wish(v, msg.sender) || !firm);
         require(wish(w, msg.sender) || !cool);
@@ -166,6 +174,7 @@ contract Vat {
         require(live == 1);
     }
     // --- CDP Fungibility ---
+    // move collateral and/or debt between two user's CDPs
     function fork(bytes32 ilk, address src, address dst, int dink, int dart) public note {
         Urn storage u = urns[ilk][src];
         Urn storage v = urns[ilk][dst];
@@ -188,20 +197,24 @@ contract Vat {
         require(mul(v.art, i.rate) >= i.dust || v.art == 0);
     }
     // --- CDP Confiscation ---
-    function grab(bytes32 i, address u, address v, address w, int dink, int dart) public note auth {
+    function grab(bytes32 i, address u, address v, address w, int dink, int dart) public note auth { // grab is only called on Cat.bite where dink and dart are negative
         Urn storage urn = urns[i][u];
         Ilk storage ilk = ilks[i];
 
+        // Subtract collateral and dai from the CDP
         urn.ink = add(urn.ink, dink);
         urn.art = add(urn.art, dart);
         ilk.Art = add(ilk.Art, dart);
 
+        // Add the CDP's collateral (gems) to the v's free gems. When this is called by Cat.bite, v is the cat contract
         gem[i][v] = sub(gem[i][v], dink);
+        // Add the debt to the total debt (vice) and to w's debt (sin). When this is called by Cat.bite, w is the vow contract
         sin[w]    = sub(sin[w], mul(ilk.rate, dart));
         vice      = sub(vice,   mul(ilk.rate, dart));
     }
 
     // --- Settlement ---
+    // destroy (or create) equal amounts of debt and dai
     function heal(address u, address v, int rad) public note auth {
         sin[u] = sub(sin[u], rad);
         dai[v] = sub(dai[v], rad);
@@ -210,10 +223,10 @@ contract Vat {
     }
 
     // --- Rates ---
-    function fold(bytes32 i, address u, int rate) public note auth {
+    function fold(bytes32 i, address u, int rate) public note auth { // this is only called by Jug.drip, where u is the Vow contract address
         Ilk storage ilk = ilks[i];
-        ilk.rate = add(ilk.rate, rate);
-        int rad  = mul(ilk.Art, rate);
+        ilk.rate = add(ilk.rate, rate); // rate is accumulated stabilty fee
+        int rad  = mul(ilk.Art, rate); // stability fee must be repaid so the total debt increases
         dai[u]   = add(dai[u], rad);
         debt     = add(debt,   rad);
     }
