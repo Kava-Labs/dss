@@ -157,7 +157,7 @@ contract Cat is DSNote {
         f.ink -= ink;
 
         id = Flippy(i.flip).kick({ urn: f.urn
-                                 , gal: address(vow)
+                                 , gal: address(vow) // recipient of auction proceeds
                                  , tab: rmul(rad, i.chop) // chop is the liquidation penalty
                                  , lot: ink
                                  , bid: 0
