@@ -45,7 +45,7 @@ contract Flapper is DSNote {
         address guy;  // high bidder
         uint48  tic;  // expiry time
         uint48  end;
-        address gal;
+        address gal; // recipient of auction proceeds
     }
 
     mapping (uint => Bid) public bids;
@@ -82,7 +82,7 @@ contract Flapper is DSNote {
     }
 
     // --- Auction ---
-    function kick(address gal, uint lot, uint bid)
+    function kick(address gal, uint lot, uint bid) // Vow: address(0), bump, 0
         public returns (uint id)
     {
         require(kicks < uint(-1));

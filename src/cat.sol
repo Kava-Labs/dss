@@ -147,6 +147,7 @@ contract Cat is DSNote {
         Flip storage f = flips[n];
         Ilk  storage i = ilks[f.ilk];
 
+        // These conditions contrain the auctions to raise min(f.tab, lump) amount of dai. ie it's always for amount `lump`, unless `tab` is less than this, in which case its for the full `tab` amount.
         require(rad <= f.tab); // tab is amount of dai to be raised at auction
         require(rad == i.lump || (rad < i.lump && rad == f.tab));
 

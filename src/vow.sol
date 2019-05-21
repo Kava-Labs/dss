@@ -109,12 +109,13 @@ contract Vow is DSNote {
         sin[era] = 0;
     }
 
-    // Debt settlement
+    // Settlement free debt (Woe)
     function heal(uint rad) public note {
         require(rad <= Joy() && rad <= Woe());
         require(int(rad) >= 0);
         VatLike(vat).heal(address(this), address(this), int(rad)); // subtract 'rad' amount of dai and sin from Vow, eg reduce Joy and Awe, eg anihilate dai with debt
     }
+    // Settle on auction debt (Ash)
     function kiss(uint rad) public note {
         require(rad <= Ash && rad <= Joy());
         Ash = sub(Ash, rad); // Ash - total on-auction debt
