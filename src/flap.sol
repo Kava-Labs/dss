@@ -38,6 +38,12 @@ contract GemLike {
 */
 
 contract Flapper is DSNote {
+    // --- Auth ---
+    mapping (address => uint) public wards;
+    function rely(address usr) public note auth { wards[usr] = 1; }
+    function deny(address usr) public note auth { wards[usr] = 0; }
+    modifier auth { require(wards[msg.sender] == 1); _; }
+
     // --- Data ---
     struct Bid {
         uint256 bid;
@@ -58,6 +64,7 @@ contract Flapper is DSNote {
     uint48   public   ttl = 3 hours;  // 3 hours bid duration
     uint48   public   tau = 2 days;   // 2 days total auction length
     uint256  public kicks = 0;
+    uint256  public live;
 
     // --- Events ---
     event Kick(
@@ -69,8 +76,10 @@ contract Flapper is DSNote {
 
     // --- Init ---
     constructor(address dai_, address gem_) public {
+        wards[msg.sender] = 1;
         dai = DaiLike(dai_);
         gem = GemLike(gem_);
+        live = 1;
     }
 
     // --- Math ---
@@ -81,10 +90,18 @@ contract Flapper is DSNote {
         require(y == 0 || (z = x * y) / y == x);
     }
 
+    // --- Admin ---
+    function file(bytes32 what, uint data) public note auth {
+        if (what == "beg") beg = data;
+        if (what == "ttl") ttl = uint48(data);
+        if (what == "tau") tau = uint48(data);
+    }
+
     // --- Auction ---
     function kick(address gal, uint lot, uint bid)
         public returns (uint id)
     {
+        require(live == 1);
         require(kicks < uint(-1));
         id = ++kicks;
 
@@ -99,6 +116,7 @@ contract Flapper is DSNote {
         emit Kick(id, lot, bid, gal);
     }
     function tend(uint id, uint lot, uint bid) public note {
+        require(live == 1);
         require(bids[id].guy != address(0));
         require(bids[id].tic > now || bids[id].tic == 0);
         require(bids[id].end > now);
@@ -115,9 +133,21 @@ contract Flapper is DSNote {
         bids[id].tic = add(uint48(now), ttl);
     }
     function deal(uint id) public note {
+        require(live == 1);
         require(bids[id].tic < now && bids[id].tic != 0 ||
                 bids[id].end < now);
         dai.move(address(this), bids[id].guy, bids[id].lot);
+        delete bids[id];
+    }
+
+    function cage(uint rad) public note auth {
+       live = 0;
+       dai.move(address(this), msg.sender, rad);
+    }
+    function yank(uint id) public note {
+        require(live == 0);
+        require(bids[id].guy != address(0));
+        gem.move(address(this), bids[id].guy, bids[id].bid);
         delete bids[id];
     }
 }

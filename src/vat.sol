@@ -56,6 +56,14 @@ contract Vat {
     uint256 public live;  // Access Flag
 
     // --- Logs ---
+    event LogNote(
+        bytes4   indexed  hash,
+        bytes32  indexed  arg1,
+        bytes32  indexed  arg2,
+        bytes32  indexed  arg3,
+        bytes             data
+    ) anonymous;
+
     modifier note {
         _;
         assembly {
@@ -119,6 +127,9 @@ contract Vat {
         if (what == "spot") ilks[ilk].spot = data;
         if (what == "line") ilks[ilk].line = data;
         if (what == "dust") ilks[ilk].dust = data;
+    }
+    function cage() public note auth {
+        live = 0;
     }
 
     // --- Fungibility ---
@@ -202,15 +213,23 @@ contract Vat {
     }
 
     // --- Settlement ---
-    function heal(address u, address v, int rad) public note auth {
+    function heal(uint rad) public note {
+        address u = msg.sender;
         sin[u] = sub(sin[u], rad);
-        dai[v] = sub(dai[v], rad);
+        dai[u] = sub(dai[u], rad);
         vice   = sub(vice,   rad);
         debt   = sub(debt,   rad);
+    }
+    function suck(address u, address v, uint rad) public note auth {
+        sin[u] = add(sin[u], rad);
+        dai[v] = add(dai[v], rad);
+        vice   = add(vice,   rad);
+        debt   = add(debt,   rad);
     }
 
     // --- Rates ---
     function fold(bytes32 i, address u, int rate) public note auth {
+        require(live == 1);
         Ilk storage ilk = ilks[i];
         ilk.rate = add(ilk.rate, rate);
         int rad  = mul(ilk.Art, rate);

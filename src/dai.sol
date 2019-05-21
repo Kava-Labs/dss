@@ -54,6 +54,7 @@ contract Dai {
         wards[msg.sender] = 1;
         symbol = symbol_;
         name = name_;
+        version = version_;
         DOMAIN_SEPARATOR = keccak256(abi.encode(
             keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
             keccak256("Dai Semi-Automated Permit Office"),
@@ -124,7 +125,7 @@ contract Dai {
                                      allowed))
         ));
         require(holder == ecrecover(digest, v, r, s), "invalid permit");
-        require(expiry == 0 || expiry < now, "permit expired");
+        require(expiry == 0 || now <= expiry, "permit expired");
         require(nonce == nonces[holder]++, "invalid nonce");
         uint wad = allowed ? uint(-1) : 0;
         allowance[holder][spender] = wad;

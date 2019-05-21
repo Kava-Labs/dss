@@ -64,6 +64,7 @@ contract Flopper is DSNote {
     uint48   public   ttl = 3 hours;  // 3 hours bid lifetime
     uint48   public   tau = 2 days;   // 2 days total auction length
     uint256  public kicks = 0;
+    uint256  public live;
 
     // --- Events ---
     event Kick(
@@ -78,6 +79,7 @@ contract Flopper is DSNote {
         wards[msg.sender] = 1;
         dai = DaiLike(dai_);
         gem = GemLike(gem_);
+        live = 1;
     }
 
     // --- Math ---
@@ -88,8 +90,16 @@ contract Flopper is DSNote {
         require(y == 0 || (z = x * y) / y == x);
     }
 
+    // --- Admin ---
+    function file(bytes32 what, uint data) public note auth {
+        if (what == "beg") beg = data;
+        if (what == "ttl") ttl = uint48(data);
+        if (what == "tau") tau = uint48(data);
+    }
+
     // --- Auction ---
     function kick(address gal, uint lot, uint bid) public auth returns (uint id) {
+        require(live == 1);
         require(kicks < uint(-1));
         id = ++kicks;
 
@@ -102,6 +112,7 @@ contract Flopper is DSNote {
         emit Kick(id, lot, bid, gal);
     }
     function dent(uint id, uint lot, uint bid) public note {
+        require(live == 1);
         require(bids[id].guy != address(0));
         require(bids[id].tic > now || bids[id].tic == 0);
         require(bids[id].end > now);
@@ -117,9 +128,20 @@ contract Flopper is DSNote {
         bids[id].tic = add(uint48(now), ttl);
     }
     function deal(uint id) public note {
+        require(live == 1);
         require(bids[id].tic < now && bids[id].tic != 0 ||
                 bids[id].end < now);
         gem.mint(bids[id].guy, bids[id].lot);
+        delete bids[id];
+    }
+
+    function cage() public note auth {
+       live = 0;
+    }
+    function yank(uint id) public note {
+        require(live == 0);
+        require(bids[id].guy != address(0));
+        dai.move(address(this), bids[id].guy, bids[id].bid);
         delete bids[id];
     }
 }
